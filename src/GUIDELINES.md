@@ -10,7 +10,8 @@ A domain folder can be dragged into another project and work out of the box. Whe
 
 ```
 src/server/internal/<domain>/
-  <domain>.go     what it is, its types and constructor
+  <domain>.go     what it is, its errors, API and constructor
+  types.go        its structs and constants
   deps.go         interfaces it needs
   logic.go        pure logic, with logic_test.go
   service.go      I/O and sequencing, with service_test.go

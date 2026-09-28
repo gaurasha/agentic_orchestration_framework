@@ -1,4 +1,4 @@
-.PHONY: check test fmt
+.PHONY: check test fmt run
 
 check:
 	cd src/server && test -z "$$(gofmt -l .)" && go vet ./... && go test ./...
@@ -8,3 +8,6 @@ test:
 
 fmt:
 	gofmt -w src/server
+
+run:
+	cd src/server && go run ./cmd/server

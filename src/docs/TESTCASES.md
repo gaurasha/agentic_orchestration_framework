@@ -6,8 +6,8 @@ What it must prove, by part of [PRODUCT.md](PRODUCT.md); IDs keep the part numbe
 
 | ID | Behaviour | Test |
 |---|---|---|
-| 1.1 | Saving a definition stores it under its content hash; saving the same content again creates no new version. | — |
-| 1.2 | Editing a definition creates a new version and leaves the old one unchanged. | — |
+| 1.1 | Creating an agent gives it an ID at version 1; saving content identical to the latest version creates no new version. | — |
+| 1.2 | Editing an agent creates the next version number and leaves the old version unchanged. | — |
 | 1.3 | An execution stays on the version it started with, even after the agent is edited. | — |
 | 1.4 | A definition that lists a tool missing from the tenant's registry is refused. | — |
 
@@ -24,7 +24,7 @@ What it must prove, by part of [PRODUCT.md](PRODUCT.md); IDs keep the part numbe
 | 3.7 | A retry with the same idempotency key returns the first result, and the external service sees one request. | — |
 | 3.8 | A tool added to the registry works for an agent that lists it, with no code change or restart. | — |
 | 3.9 | Credentials are encrypted at rest: the SQLite file does not contain them in plain text. | — |
-| 3.10 | No API response, UI view, timeline event, audit record or log line contains a credential. | — |
+| 3.10 | No API response, UI view, timeline event or log line contains a credential. | — |
 
 ## 4. HITL & approvals
 
@@ -40,8 +40,6 @@ What it must prove, by part of [PRODUCT.md](PRODUCT.md); IDs keep the part numbe
 | ID | Behaviour | Test |
 |---|---|---|
 | 7.1 | Every model call, tool call, approval, answer and result appears in the execution's timeline, in order. | — |
-| 7.2 | Every gateway decision, allow or deny, is in the audit log with its reason. | — |
-| 7.3 | A change to a past audit record is detected. | — |
 
 ## 8. Tenant isolation
 

@@ -10,19 +10,24 @@
 
 ```
 agentic_orchestration_framework/
-  Makefile                    check, test, fmt
+  Makefile                    check, test, fmt, run
   src/
     docs/                     product, test cases, decisions
     server/                   the Go project
+      cmd/server/             config, HTTP, the UI's JWT, and the adapters that join domains
+      internal/agents/        agents by ID, versions by number
+      internal/tools/         the tool registry
+      internal/executions/    the agent loop, its workflow interface, HITL
+      internal/llm/           the LLM proxy
       internal/gateway/       every tool call and outbound request
-      internal/sandbox/       one sandbox per execution
       internal/credentials/   caller tokens and real credentials
-      internal/audit/         hash-chained audit log
+      internal/sandbox/       one sandbox per execution
+      internal/timeline/      each execution's trajectory
     ui/                       only what the demo needs
 ```
 
-Each domain has `<domain>.go` (what it is, its types and `API`) and `deps.go` (what it needs). Domains never import each other; `server/cmd/` (not yet written) wires them.
+Each domain has `<domain>.go` (what it is, its errors and `API`), `types.go` (its structs) and `deps.go` (what it needs). Domains never import each other; `cmd/server/wire.go` adapts one domain's API to another's deps.
 
 ## A tool call
 
-token → tool → grant, allowlist, budget → idempotency key → audit → run (HTTP from the gateway, or a command in the sandbox) → real credential added to the external request → audit → result
+token → tool → grant, allowlist, budget → idempotency key → run (HTTP from the gateway, or a command in the sandbox) → real credential added to the external request → result
