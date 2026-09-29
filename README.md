@@ -3,7 +3,6 @@
 The tool call execution layer of a platform that runs AI agents for many tenants. Ten seeded demos, one per part of the design, run end to end, all in memory. Start at [src/AGENT.md](src/AGENT.md).
 
 ```bash
-make check                                       # gofmt, vet, go test, UI typecheck: no Docker or network needed
 make run                                         # API :8080, egress :8081, UI :5173; commands as local processes; demos 1 to 9
 GH_CLI_TOKEN=$(gh auth token) make run-sandbox   # the same with the Docker sandbox on Colima, for demo 10 (gh)
 ```
@@ -26,8 +25,6 @@ The server seeds tenant `acme` at start with the tools, a credential, ten agents
 | 8 | `08-version-pinning` | A run stays on the version it started with | The run says *ran on v1* while the agent is at v2; a new run says *ran on v2* |
 | 9 | `09-sandbox-egress` | A command holds only a placeholder; egress swaps it for the tool's hosts only | `env: fake_…` in the sandbox, the real value at the service, 403 for another host, files shared across the run, the real `git` against a fake git server that answers only to the real value, a repository refused by the allowlist |
 | 10 | `10-gh-tls-intercept` | A CLI that fixes its host, through egress as an HTTPS proxy with a platform CA | The real `gh` in Docker lists your pull requests holding only a placeholder; the other host is refused; the placeholder is worthless around egress |
-
-Not a run, but part of the design: **tenant isolation**. Sign out and sign in as `globex`: no tools, agents, credentials or runs, and `acme`'s IDs answer 404.
 
 ## Quick start: follow along
 
