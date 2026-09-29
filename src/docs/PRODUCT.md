@@ -15,30 +15,35 @@ Out of scope: the agent's intelligence, multi-agent, multi-region, auth, payment
 
 ## Scope
 
-It demonstrates the tool execution layer end to end. What it does for each part:
+It demonstrates the tool execution layer end to end, all in memory. What it does for each part:
 
 | Part | What it does |
 |---|---|
-| 1 | Agent definitions in SQLite. An agent has an ID; each edit makes a new numbered version, and a version never changes. Each lists the tools the agent may use, from the tool registry. |
-| 2 | A basic agent loop (call the model, run the tools it asks for, repeat) behind a workflow interface. It runs in memory, so a restart loses running executions; Temporal can replace it behind the same interface. |
-| 3 | Tools are data in a tool registry. Every tool call goes through the tool gateway, which checks the caller's short-lived token, the grant, the arguments and the budget, then adds the real credential from the credential store to the external request only. Credentials are encrypted at rest and never returned or shown. |
-| 4 | An execution can pause for a human: to approve or reject a tool call, or to answer a question. It resumes when the UI answers. |
-| 5 | One sandbox per execution, mocked or run directly on this machine without isolation, behind the interface a real sandbox will implement. |
-| 6 | The LLM proxy is mocked behind an interface, so a real key can be used later. The gateway enforces tool budgets. Fairness between tenants is out of scope. |
-| 7 | Each execution's trajectory (every model call, tool call, approval and result) is recorded in SQLite. No separate audit log. |
-| 8 | A basic endpoint mints a JWT carrying the tenant ID; the UI sends it with every request, and everything a request does is scoped to that tenant. The workflow gets a short-lived token to call the tool gateway. |
+| 1 | An agent has an ID; each edit makes a new numbered version with a content hash, and a version never changes. Saving unchanged content makes no new version. Each version lists the tools the agent may use, with an allowlist of argument values and whether a human must approve each call, from the tool registry; a tool the registry lacks is refused. |
+| 2 | A basic agent loop: call the model, run the tools it asks for, feed back the results, repeat until the final answer. It runs inside the request that starts or resumes it. Each call carries a key, `execution:turn:index`, so a retry gets the saved result and nothing runs twice. The same call repeated N times is refused with a message to the model; a step cap ends a run that never answers. |
+| 3 | Tools are data in a tool registry, of two kinds. An HTTP tool is a request template, with `{arg}` placeholders allowed in the path or query only, so an argument can never change the host; the gateway adds the real credential to the request and hides it in the response. An exec tool is a command; see part 5. Every call goes through the gateway, which checks in order: the tool, the pinned version's grant, the arguments against the tool's JSON Schema and the grant's allowlist, the journal (a saved result comes back as is), approval on file, then the budget. Redirects are off. No API ever returns a credential. |
+| 4 | A call the version marks "needs approval" pauses the execution. The UI approves (the gateway records the approval for that one call and runs it), rejects (the reason goes to the model, and the run continues) or cancels. The model can ask the user a question; the run waits for the answer. An answer never counts as an approval. Each wait has a key that the decision or answer must name, so one meant for an earlier wait is refused rather than applied to the next. |
+| 5 | An exec tool's command runs in the execution's sandbox: local processes, or Docker with `SANDBOX=docker`. Its environment holds only what the gateway gives it: each argument as `ARG_<name>`, the egress URL (also as its HTTP proxy), a placeholder where the credential goes, and the platform CA to trust. The command sends its requests through egress, which exchanges a live placeholder for the real credential on a request to one of the tool's hosts only, and puts the placeholder back in the reply. A tool that takes a base URL addresses egress as `$EGRESS/{scheme}/{host}/{path}`; a CLI that fixes its host, such as `gh`, reaches egress as its proxy, and egress answers the CONNECT with a certificate for that host signed by the platform CA, which only the sandbox trusts, and swaps inside the TLS connection. The placeholder is retired when the call ends. The real credential never enters the sandbox. Files persist across the run's commands, and the sandbox is released when the run ends. |
+| 6 | The model is a scripted mock. The gateway enforces each execution's tool call budget; refusals and replays cost nothing. |
+| 7 | A run may carry a description, a human's note on what it is for and what to expect, shown with it and never sent to the model; the seeded runs use it to say how to read their steps. Each execution keeps its steps, saved as each completes so a running execution shows its progress: every tool call, its arguments, what the model saw back, the exit code of a command, whether it was approved or replayed, and each question with its answer. The gateway logs each call before and after it runs, each refusal with its reason, and each approval; egress logs each outbound request and its decision. |
+| 8 | An endpoint mints a JWT carrying the tenant ID; the UI sends it with every request, and everything a request does is scoped to that tenant. Journal entries, approvals and placeholders are keyed by tenant. |
 
 Also:
 
-- A retried tool call returns its first result instead of running twice.
-- Tool calls time out, and an execution can be cancelled from the UI.
 - An execution stays on the agent version it started with.
-- An HTTP tool reaches only the hosts its definition lists.
-- A fake external service checks the credential it receives, so the demo proves the gateway added it.
-- The mocked LLM plays a scripted conversation, so every demo run is the same.
+- A refusal goes back to the model with its reason, and the execution continues.
+- Tool calls and commands time out; a tool that fails returns an error result to the model. A call whose reply was lost after it was sent is an uncertain result: saved under its key and replayed on retry, never sent again.
+- The mock model reads the input one line at a time: `tool {json args}` calls a tool, `ask <question>` asks the user and waits. Every demo run is the same.
+- `/demo/echo` is a fake external API built into the server, which reports the credential header it received and numbers each request, so the demos prove the credential arrived and that a replay sent nothing.
 
-What it must prove: [TESTCASES.md](TESTCASES.md). Parts 2, 5 and 6 and the demo are not tested.
+What it must prove: [TESTCASES.md](TESTCASES.md).
+
+## Later
+
+- A sandbox network that allows only egress; today a command that ignores `$EGRESS` can reach the network directly (with no credential).
+- Durable storage, a real model provider and a workflow engine, behind the same interfaces. A run then survives a restart and can be cancelled while a call runs.
+- Rate limits and token budgets per tenant.
 
 ## The UI
 
-Minimal, for the demo: create an agent definition, start an execution, follow its full timeline, and answer HITL requests.
+Minimal, for the demo: store credentials and tools of both kinds, create and edit an agent, run it, approve, reject, answer or cancel when it waits, retry a step, and follow each run's steps and the version it ran on.

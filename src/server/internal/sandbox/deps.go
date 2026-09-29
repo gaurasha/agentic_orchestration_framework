@@ -2,7 +2,7 @@ package sandbox
 
 import "context"
 
-// Runtime runs sandboxes: for now a mock or local processes.
+// Runtime runs sandboxes: local processes or Docker containers.
 type Runtime interface {
 	Start(ctx context.Context, tenant, execution string) (id string, err error)
 	Exec(ctx context.Context, id string, cmd Command) (Output, error)

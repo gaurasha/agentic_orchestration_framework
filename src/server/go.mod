@@ -1,3 +1,3 @@
 module github.com/gaurasha/agentic_orchestration_framework/src/server
 
-go 1.24
+go 1.25

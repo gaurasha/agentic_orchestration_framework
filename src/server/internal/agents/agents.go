@@ -25,4 +25,8 @@ type API interface {
 	Latest(ctx context.Context, tenant, id string) (Agent, error)
 	// List returns each agent at its latest version.
 	List(ctx context.Context, tenant string) ([]Agent, error)
+	// Versions returns every version of one agent, oldest first.
+	Versions(ctx context.Context, tenant, id string) ([]Agent, error)
 }
+
+func New(d Deps) API { return &service{d: d} }

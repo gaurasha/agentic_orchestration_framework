@@ -26,20 +26,21 @@ func requireTenant(t tenantTokens, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 		if !ok {
-			http.Error(w, "missing bearer token", http.StatusUnauthorized)
+			writeError(w, http.StatusUnauthorized, "missing bearer token")
 			return
 		}
 		tenant, err := t.Verify(r.Context(), token)
 		if err != nil {
-			http.Error(w, "invalid token", http.StatusUnauthorized)
+			writeError(w, http.StatusUnauthorized, "invalid token")
 			return
 		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), tenantKey{}, tenant)))
 	})
 }
 
-// tenantOf returns the tenant requireTenant stored.
-func tenantOf(ctx context.Context) string {
-	s, _ := ctx.Value(tenantKey{}).(string)
-	return s
+// tenantOf returns the tenant requireTenant stored, and whether it did, so
+// a handler outside the middleware can never act as tenant "".
+func tenantOf(ctx context.Context) (string, bool) {
+	s, ok := ctx.Value(tenantKey{}).(string)
+	return s, ok && s != ""
 }

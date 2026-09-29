@@ -13,7 +13,7 @@ src/server/internal/<domain>/
   <domain>.go     what it is, its errors, API and constructor
   types.go        its structs and constants
   deps.go         interfaces it needs
-  logic.go        pure logic, with logic_test.go
+  core.go        pure logic, with core_test.go
   service.go      I/O and sequencing, with service_test.go
   deps/memory/    in-memory adapter, shipped with the domain
   deps/sqlite/    real adapter, with its own migrations
@@ -25,8 +25,8 @@ src/server/internal/<domain>/
 
 ## Functional core, imperative shell
 
-- `logic.go` is pure: no ctx, I/O, clock, randomness or globals. It is tested as a table, with no mocks.
-- `service.go` only sequences; any decision belongs in `logic.go`, where it can be tested.
+- `core.go` is pure: no ctx, I/O, clock, randomness or globals. It is tested as a table, with no mocks.
+- `service.go` only sequences; any decision belongs in `core.go`, where it can be tested.
 - No global state, `init()` or singletons: each ties a domain to one process.
 - Clock, IDs, config and loggers are passed in; never `time.Now()` or `os.Getenv` in a domain, so tests are deterministic and a new host needs no hidden setup.
 
@@ -40,8 +40,8 @@ src/server/internal/<domain>/
 
 - Tests sit beside the file. Logic: table-driven. Services: against `deps/memory`, never a mocking framework.
 - A domain's tests pass with only its own folder present.
-- Retries, timeouts and backoff use `testing/synctest` (`GOEXPERIMENT=synctest` on Go 1.24) for a fake clock.
+- Retries, timeouts and backoff use `testing/synctest` (stable since Go 1.25) for a fake clock.
 
 ## UI
 
-The same rules, per domain in `src/ui/src/domains/<domain>/`: components are pure functions of props, a provider injects deps, domains never import each other, state is `readonly`, and styling uses semantic theme tokens only.
+The same rules, per domain in `src/ui/src/domains/<domain>/`: `types.ts`, `deps.tsx` (a provider injects deps), `http.ts` (the `/v1` adapter) and components that are pure functions of props. Domains never import each other; only `App.tsx` knows more than one. State is `readonly`, and styling uses semantic theme tokens only.

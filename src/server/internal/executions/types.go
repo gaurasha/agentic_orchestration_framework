@@ -1,7 +1,6 @@
 package executions
 
 import (
-	"context"
 	"encoding/json"
 	"time"
 )
@@ -16,46 +15,98 @@ const (
 	Cancelled Status = "cancelled"
 )
 
-type Execution struct {
-	ID           string
-	Tenant       string
-	AgentID      string
-	AgentVersion int // pinned for the whole run
-	Input        string
-	Status       Status
-	Wait         *Wait  // while Waiting
-	Output       string // the final answer
-	Error        string // why it failed or was cancelled
-	StartedAt    time.Time
-	EndedAt      time.Time
+// Run is what starts an execution. Description is a human's note on the
+// run, what it is for and what to expect, shown with it and never sent to
+// the model.
+type Run struct {
+	AgentID     string
+	Input       string
+	Description string
 }
 
-// Wait is what a waiting execution needs: an approval (Tool set) or an
-// answer (Question set).
+type Execution struct {
+	ID           string    `json:"id"`
+	Tenant       string    `json:"-"`
+	AgentID      string    `json:"agentId"`
+	AgentVersion int       `json:"agentVersion"` // pinned for the whole run
+	Input        string    `json:"input"`
+	Description  string    `json:"description,omitempty"`
+	Status       Status    `json:"status"`
+	Wait         *Wait     `json:"wait,omitempty"` // while Waiting
+	Steps        []Step    `json:"steps"`
+	Output       string    `json:"output"` // the final answer
+	Error        string    `json:"error,omitempty"`
+	StartedAt    time.Time `json:"startedAt"`
+	EndedAt      time.Time `json:"endedAt"`
+	History      []Message `json:"-"` // the conversation so far, to resume from
+}
+
+type WaitKind string
+
+const (
+	WaitApproval WaitKind = "approval"
+	WaitQuestion WaitKind = "question"
+)
+
+// Wait is what a waiting execution needs from a human. Key names this
+// wait; a decision or an answer must carry it, so one meant for an earlier
+// wait is refused instead of landing on the next.
 type Wait struct {
-	Tool     string
-	Args     json.RawMessage
-	Question string
+	Key      string          `json:"key"`
+	Kind     WaitKind        `json:"kind"`
+	Tool     string          `json:"tool,omitempty"` // WaitApproval: the pending call
+	Args     json.RawMessage `json:"args,omitempty"`
+	Question string          `json:"question,omitempty"` // WaitQuestion
+	AskedAt  time.Time       `json:"askedAt"`
+	Turn     int             `json:"-"` // WaitApproval: where to resume
+	Index    int             `json:"-"`
 }
 
 type Decision struct {
-	Approve bool
-	Reason  string // shown to the model on rejection
+	Key     string `json:"key"` // the wait it decides, from Wait.Key
+	Approve bool   `json:"approve"`
+	Reason  string `json:"reason"` // shown to the model on rejection
+}
+
+// Reply answers a question.
+type Reply struct {
+	Key  string `json:"key"` // the wait it answers, from Wait.Key
+	Text string `json:"text"`
+}
+
+// Outcome is how one step went.
+type Outcome string
+
+const (
+	OK       Outcome = "ok"
+	Errored  Outcome = "error"    // the tool ran and failed
+	Refused  Outcome = "refused"  // the gateway did not run it; Output says why
+	Rejected Outcome = "rejected" // a human said no; Output is the reason
+	// NeedsApproval is a gateway result only: the loop pauses instead of
+	// recording a step.
+	NeedsApproval Outcome = "needs_approval"
+)
+
+// Step is one tool call, as the model saw its result, or one question and
+// its answer.
+type Step struct {
+	Index    int             `json:"index"` // from 1
+	Tool     string          `json:"tool"`
+	Kind     string          `json:"kind,omitempty"` // "http", "exec" or "question"; empty when refused
+	Args     json.RawMessage `json:"args"`
+	Outcome  Outcome         `json:"outcome"`
+	ExitCode *int            `json:"exitCode,omitempty"` // exec only
+	Output   string          `json:"output"`             // never a secret
+	Replayed bool            `json:"replayed,omitempty"` // a retry served from the journal
+	Approved bool            `json:"approved,omitempty"` // ran after a human approved it
+	At       time.Time       `json:"at"`
+	Key      string          `json:"-"` // the call's idempotency key
 }
 
 type Config struct {
 	MaxSteps    int           // model calls before the execution fails
-	ToolTimeout time.Duration // per tool call; the model is told on timeout
-	TokenTTL    time.Duration // of the token the loop gives the gateway
-}
-
-// Workflow is one execution's loop; decisions and answers arrive as signals.
-type Workflow func(ctx context.Context, signals <-chan Signal) error
-
-// Signal is a decision or an answer.
-type Signal struct {
-	Decision *Decision
-	Answer   *string
+	MaxRepeats  int           // identical calls before the loop refuses to repeat one
+	ToolTimeout time.Duration // per tool call; 0 means none
 }
 
 // Agent is what the loop needs of one agent version.
@@ -68,27 +119,33 @@ type Agent struct {
 }
 
 type Tool struct {
-	Name          string
-	Description   string
-	Params        json.RawMessage // JSON Schema
-	NeedsApproval bool
+	Name        string
+	Description string
+	Params      json.RawMessage // JSON Schema
+}
+
+// Caller names the execution to the gateway, with its pinned version.
+type Caller struct {
+	Tenant       string
+	Execution    string
+	AgentID      string
+	AgentVersion int
 }
 
 type Prompt struct {
-	Tenant    string
-	Execution string
-	Model     string
-	System    string
-	History   []Message
-	Tools     []Tool
+	Model   string
+	System  string
+	History []Message
+	Tools   []Tool
 }
 
 type Message struct {
-	Role       string // "user", "assistant" or "tool"
-	Text       string
-	ToolCalls  []ToolCall // assistant; none means the final answer
-	ToolCallID string     // tool
-	IsError    bool       // tool
+	Role       string     `json:"role"` // "user", "assistant" or "tool"
+	Text       string     `json:"text,omitempty"`
+	ToolCalls  []ToolCall `json:"toolCalls,omitempty"`  // assistant; none means the final answer
+	Question   string     `json:"question,omitempty"`   // assistant: asks the user and waits
+	ToolCallID string     `json:"toolCallId,omitempty"` // tool
+	IsError    bool       `json:"isError,omitempty"`    // tool
 }
 
 type ToolCall struct {
@@ -98,14 +155,9 @@ type ToolCall struct {
 }
 
 type ToolResult struct {
-	Output  string
-	IsError bool
-}
-
-// Event is one step, for the timeline.
-type Event struct {
-	Tenant    string
-	Execution string
-	Kind      string
-	Data      json.RawMessage // never a secret
+	Output   string
+	Outcome  Outcome
+	Kind     string // "http" or "exec"; empty when refused
+	ExitCode *int   // exec only
+	Replayed bool
 }

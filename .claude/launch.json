@@ -1,0 +1,30 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "ui",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "src/ui",
+        "run",
+        "dev"
+      ],
+      "port": 5173,
+      "autoPort": true
+    },
+    {
+      "name": "server-docker",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "ADDR=:8090",
+        "EGRESS_ADDR=:8091",
+        "EGRESS_URL=http://192.168.64.1:8091",
+        "SANDBOX=docker",
+        "make",
+        "run"
+      ],
+      "port": 8090
+    }
+  ]
+}

@@ -7,20 +7,27 @@ import (
 
 type Clock interface{ Now() time.Time }
 
-// Secrets stores real credentials: Vault in production, SQLite locally.
+// Random makes unguessable tokens.
+type Random interface{ Token() string }
+
+// Secrets stores real credentials: in memory for now, a vault in production.
 type Secrets interface {
 	Get(ctx context.Context, tenant, ref string) (Secret, error) // ErrNotFound if absent
 	Put(ctx context.Context, tenant, ref string, s Secret) error
+	List(ctx context.Context, tenant string) ([]string, error) // sorted refs
 }
 
-// Keys signs tokens. Each token names its key, so keys can rotate.
-type Keys interface {
-	Current(ctx context.Context) (id string, key Secret, err error)
-	Get(ctx context.Context, id string) (Secret, error)
+// Placeholders keeps live placeholders by value.
+type Placeholders interface {
+	Get(ctx context.Context, value string) (Placeholder, error) // ErrUnauthenticated if absent
+	Put(ctx context.Context, value string, p Placeholder) error
+	Delete(ctx context.Context, value string) error
 }
 
 type Deps struct {
-	Secrets Secrets
-	Keys    Keys
-	Clock   Clock
+	Secrets      Secrets
+	Placeholders Placeholders
+	Key          Secret // signs tokens
+	Clock        Clock
+	Random       Random
 }

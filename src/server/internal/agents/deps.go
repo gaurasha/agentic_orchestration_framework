@@ -13,7 +13,8 @@ type IDGen interface{ NewID() string }
 type Store interface {
 	Get(ctx context.Context, tenant, id string, version int) (Agent, error) // ErrNotFound if absent
 	Latest(ctx context.Context, tenant, id string) (Agent, error)           // ErrNotFound if absent
-	List(ctx context.Context, tenant string) ([]Agent, error)
+	List(ctx context.Context, tenant string) ([]Agent, error)               // latest of each, by creation
+	Versions(ctx context.Context, tenant, id string) ([]Agent, error)       // oldest first; ErrNotFound if absent
 	// Put stores a new version; ErrConflict if that version exists.
 	Put(ctx context.Context, a Agent) error
 }
