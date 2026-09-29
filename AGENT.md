@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENT.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for an AI coding agent working in this repository.
 
 This is the tool call execution layer of a multi-tenant AI agent platform. Start at [src/AGENT.md](src/AGENT.md). It links the rules ([GUIDELINES.md](src/GUIDELINES.md)), the scope ([PRODUCT.md](src/docs/PRODUCT.md)), what must be proven ([TESTCASES.md](src/docs/TESTCASES.md)) and the reasons ([DECISIONS.md](src/docs/DECISIONS.md)). Read GUIDELINES.md before writing code. Its rules are binding, and each one gives its reason.
 
